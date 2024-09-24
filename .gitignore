@@ -1,0 +1,8 @@
+# OSX
+.DS_STORE
+
+# Misc
+.idea/
+/dist
+
+csi-utho-plugin
