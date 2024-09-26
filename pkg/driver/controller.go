@@ -101,7 +101,7 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 
 	for _, volume := range volumes {
 		if volume.Name == volName {
-			byteSize, err := strconv.Atoi(volume.Size)
+			byteSize, err := strconv.ParseFloat(volume.Size, 64)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
@@ -146,8 +146,42 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 	return res, nil
 }
 
-func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	// Implement volume deletion logic here
+// DeleteVolume performs the volume deletion
+func (c *UthoControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "DeleteVolume VolumeID is missing")
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+	}).Info("Delete volume: called")
+
+	volumes, err := c.Driver.client.Ebs().List()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	
+	// chechk if exist
+	exists := false
+	for _, volume := range volumes {
+		if volume.ID == req.VolumeId {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		return &csi.DeleteVolumeResponse{}, nil
+	}
+
+	_, err = c.Driver.client.Ebs().Delete(req.VolumeId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "cannot delete volume, %v", err.Error())
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+	}).Info("Delete Volume: deleted")
+
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
