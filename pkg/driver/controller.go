@@ -129,6 +129,37 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
+// ControllerGetCapabilities get capabilities of the controller
+func (c *UthoControllerServer) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) { //nolint:lll
+	capability := func(capability csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
+		return &csi.ControllerServiceCapability{
+			Type: &csi.ControllerServiceCapability_Rpc{
+				Rpc: &csi.ControllerServiceCapability_RPC{
+					Type: capability,
+				},
+			},
+		}
+	}
+
+	var capabilities []*csi.ControllerServiceCapability
+	for _, caps := range []csi.ControllerServiceCapability_RPC_Type{
+		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+	} {
+		capabilities = append(capabilities, capability(caps))
+	}
+
+	resp := &csi.ControllerGetCapabilitiesResponse{
+		Capabilities: capabilities,
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"response": resp,
+		"method":   "controller-get-capabilities",
+	})
+
+	return resp, nil
+}
+
 func isValidCapability(caps []*csi.VolumeCapability) bool {
 	for _, capacity := range caps {
 		if capacity == nil {
