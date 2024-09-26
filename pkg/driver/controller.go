@@ -64,7 +64,7 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 	if volName == "" {
 		return nil, status.Error(codes.InvalidArgument, "CreateVolume Name is missing")
 	}
-	if req.VolumeCapabilities == nil || len(req.VolumeCapabilities) == 0 {
+	if len(req.VolumeCapabilities) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "CreateVolume Volume Capabilities is missing")
 	}
 	if req.Parameters["dcslug"] == "" {
@@ -94,7 +94,6 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 	}).Info("Create Volume: called")
 
 	// check that the volume doesnt already exist
-	var currentVolume *utho.Ebs
 	volumes, err := c.Driver.client.Ebs().List()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -102,11 +101,14 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 
 	for _, volume := range volumes {
 		if volume.Name == volName {
-			currentVolume = &volume
-			byteSize, _ := strconv.Atoi(currentVolume.Size)
+			byteSize, err := strconv.Atoi(volume.Size)
+			if err != nil {
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
-					VolumeId:      currentVolume.ID,
+					VolumeId:      volume.ID,
 					CapacityBytes: int64(byteSize) * giB,
 				},
 			}, nil
