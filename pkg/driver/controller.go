@@ -59,7 +59,7 @@ func NewUthoControllerServer(driver *UthoDriver) *UthoControllerServer {
 }
 
 // CreateVolume provisions a new volume on behalf of the user
-func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) { //nolint:gocyclo,lll
+func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	volName := req.Name
 	if volName == "" {
 		return nil, status.Error(codes.InvalidArgument, "CreateVolume Name is missing")
@@ -92,6 +92,26 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 		"size":         size,
 		"capabilities": req.VolumeCapabilities,
 	}).Info("Create Volume: called")
+
+	// check that the volume doesnt already exist
+	var currentVolume *utho.Ebs
+	volumes, err := c.Driver.client.Ebs().List()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	for _, volume := range volumes {
+		if volume.Name == volName {
+			currentVolume = &volume
+			byteSize, _ := strconv.Atoi(currentVolume.Size)
+			return &csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					VolumeId:      currentVolume.ID,
+					CapacityBytes: int64(byteSize) * giB,
+				},
+			}, nil
+		}
+	}
 
 	// if applicable, create volume
 	params := utho.CreateEBSParams{
