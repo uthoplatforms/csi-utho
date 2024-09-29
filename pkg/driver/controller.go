@@ -322,6 +322,44 @@ func (c *UthoControllerServer) ControllerUnpublishVolume(ctx context.Context, re
 
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
+// ListVolumes performs the list volume function
+func (c *UthoControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+	if req.StartingToken != "" {
+		_, err := strconv.Atoi(req.StartingToken)
+		if err != nil {
+			return nil, status.Errorf(codes.Aborted, "ListVolumes starting_token is invalid: %s", err)
+		}
+	}
+
+	var entries []*csi.ListVolumesResponse_Entry
+	volumes, err := c.Driver.client.Ebs().List()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	for _, volume := range volumes {
+		byteSize, err := strconv.ParseFloat(volume.Size, 64)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		entries = append(entries, &csi.ListVolumesResponse_Entry{
+			Volume: &csi.Volume{
+				VolumeId: volume.ID,
+				CapacityBytes: int64(byteSize),
+			},
+		})
+	}
+
+	res := &csi.ListVolumesResponse{
+		Entries: entries,
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volumes": entries,
+	}).Info("List Volumes")
+
+	return res, nil
+}
 
 // ControllerGetCapabilities get capabilities of the controller
 func (c *UthoControllerServer) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) { //nolint:lll
