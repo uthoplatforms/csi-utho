@@ -322,6 +322,33 @@ func (c *UthoControllerServer) ControllerUnpublishVolume(ctx context.Context, re
 
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
+
+// ValidateVolumeCapabilities checks if requested capabilities are supported
+func (c *UthoControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) { //nolint:lll
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume ID is missing")
+	}
+
+	if req.VolumeCapabilities == nil {
+		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume Capabilities is missing")
+	}
+
+	if _, err := c.Driver.client.Ebs().Read(req.VolumeId); err != nil {
+		return nil, status.Errorf(codes.NotFound, "cannot get volume: %v", err.Error())
+	}
+
+	res := &csi.ValidateVolumeCapabilitiesResponse{
+		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+			VolumeCapabilities: []*csi.VolumeCapability{
+				{
+					AccessMode: supportedVolCapabilities,
+				},
+			},
+		},
+	}
+
+	return res, nil
+}
 // ListVolumes performs the list volume function
 func (c *UthoControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	if req.StartingToken != "" {
