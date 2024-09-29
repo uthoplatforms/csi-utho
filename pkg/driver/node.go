@@ -118,3 +118,28 @@ func (n *UthoNodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 	n.Driver.log.Info("Node Stage Volume: volume staged")
 	return &csi.NodeStageVolumeResponse{}, nil
 }
+
+// NodeUnstageVolume provides the node volume unstage functionality
+func (n *UthoNodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) { //nolint:dupl,lll
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "VolumeID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "Staging Target Path must be provided")
+	}
+
+	n.Driver.log.WithFields(logrus.Fields{
+		"volume-id":           req.VolumeId,
+		"staging-target-path": req.StagingTargetPath,
+	}).Info("Node Unstage Volume: called")
+
+	err := n.Driver.mounter.Unmount(req.StagingTargetPath)
+	if err != nil {
+		return nil, err
+	}
+
+	n.Driver.log.Info("Node Unstage Volume: volume unstaged")
+	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
