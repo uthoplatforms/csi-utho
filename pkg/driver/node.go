@@ -143,3 +143,31 @@ func (n *UthoNodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
+
+// NodeGetCapabilities provides the node capabilities
+func (n *UthoNodeServer) NodeGetCapabilities(context.Context, *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+	nodeCapabilities := []*csi.NodeServiceCapability{
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+				},
+			},
+		},
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+				},
+			},
+		},
+	}
+
+	n.Driver.log.WithFields(logrus.Fields{
+		"capabilities": nodeCapabilities,
+	}).Info("Node Get Capabilities: called")
+
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: nodeCapabilities,
+	}, nil
+}
