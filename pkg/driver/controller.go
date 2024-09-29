@@ -185,6 +185,144 @@ func (c *UthoControllerServer) DeleteVolume(ctx context.Context, req *csi.Delete
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
+// ControllerPublishVolume performs the volume publish for the controller
+func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) { //nolint:lll,gocyclo
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume Volume ID is missing")
+	}
+
+	if req.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume Node ID is missing")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume VolumeCapability is missing")
+	}
+
+	if req.Readonly {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume read only is not currently supported")
+	}
+
+	volume, err := c.Driver.client.Ebs().Read(req.VolumeId)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "cannot get volume: %v", err.Error())
+	}
+
+	if _, err = c.Driver.client.CloudInstances().Read(req.NodeId); err != nil {
+		return nil, status.Errorf(codes.NotFound, "cannot get node: %v", err.Error())
+	}
+
+	// node is already attached, do nothing
+	if volume.Cloudid == req.NodeId {
+		return &csi.ControllerPublishVolumeResponse{
+			PublishContext: map[string]string{
+				c.Driver.publishVolumeID: volume.Name,
+			},
+		}, nil
+	}
+
+	// assuming its attached & to the wrong node
+	if volume.Cloudid != "" {
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"cannot attach volume to node because it is already attached to a different node ID: %v node name: %v", volume.Cloudid, volume.Name)
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+		"node-id":   req.NodeId,
+	}).Info("Controller Publish Volume: called")
+
+	params := utho.AttachEBSParams{
+		EBSId:      req.VolumeId,
+		ResourceId: req.NodeId,
+		Type:       "cloud",
+	}
+	_, err = c.Driver.client.Ebs().Attach(params)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "cannot attach volume, %v", err.Error())
+	}
+
+	// attachReady := false
+	// for i := 0; i < volumeStatusCheckRetries; i++ {
+	// 	time.Sleep(volumeStatusCheckInterval * time.Second)
+	// 	bs, _, err := c.Driver.client.BlockStorage.Get(ctx, volume.ID) //nolint:bodyclose
+	// 	if err != nil {
+	// 		return nil, status.Error(codes.Internal, err.Error())
+	// 	}
+
+	// 	if bs.AttachedToInstance == req.NodeId {
+	// 		attachReady = true
+	// 		break
+	// 	}
+	// }
+
+	// if !attachReady {
+	// 	return nil, status.Errorf(codes.Internal, "volume is not attached to node after %v seconds", volumeStatusCheckRetries)
+	// }
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+		"node-id":   req.NodeId,
+	}).Info("Controller Publish Volume: published")
+
+	return &csi.ControllerPublishVolumeResponse{
+		PublishContext: map[string]string{
+			c.Driver.publishVolumeID: volume.Name,
+		},
+	}, nil
+}
+
+// ControllerUnpublishVolume performs the volume un-publish
+func (c *UthoControllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) { //nolint:lll
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerUnpublishVolume Volume ID is missing")
+	}
+
+	if req.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerUnpublishVolume Node ID is missing")
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+		"node-id":   req.NodeId,
+	}).Info("Controller Publish Unpublish: called")
+
+	volume, err := c.Driver.client.Ebs().Read(req.VolumeId)
+	if err != nil {
+		return &csi.ControllerUnpublishVolumeResponse{}, nil
+	}
+
+	// node is already unattached, do nothing
+	if volume.Cloudid == "" {
+		return &csi.ControllerUnpublishVolumeResponse{}, nil
+	}
+
+	if _, err = c.Driver.client.CloudInstances().Read(req.NodeId); err != nil {
+		return nil, status.Errorf(codes.NotFound, "cannot get node: %v", err.Error())
+	}
+
+	params := utho.AttachEBSParams{
+		EBSId:      req.VolumeId,
+		ResourceId: req.NodeId,
+		Type:       "cloud",
+	}
+
+	_, err = c.Driver.client.Ebs().Dettach(params)
+	if err != nil {
+		if strings.Contains(err.Error(), "Block storage volume is not currently attached to a server") {
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+		return nil, status.Errorf(codes.Internal, "cannot detach volume: %v", err.Error())
+	}
+
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+		"node-id":   req.NodeId,
+	}).Info("Controller Unublish Volume: unpublished")
+
+	return &csi.ControllerUnpublishVolumeResponse{}, nil
+}
+
 // ControllerGetCapabilities get capabilities of the controller
 func (c *UthoControllerServer) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) { //nolint:lll
 	capability := func(capability csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
