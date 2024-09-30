@@ -134,9 +134,25 @@ func (n *UthoNodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 		"staging-target-path": req.StagingTargetPath,
 	}).Info("Node Unstage Volume: called")
 
-	err := n.Driver.mounter.Unmount(req.StagingTargetPath)
+	n.Driver.log.WithFields(logrus.Fields{
+		"volume-id":   req.VolumeId,
+		"target-path": req.StagingTargetPath,
+	}).Info("Node Unpublish Volume: called")
+
+	mounted, err := n.isMounted(req.StagingTargetPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if mounted {
+		n.Driver.log.Info("unmounting the staging target path")
+
+		err := n.Driver.mounter.Unmount(req.StagingTargetPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		n.Driver.log.Info("staging target path is already unmounted")
 	}
 
 	n.Driver.log.Info("Node Unstage Volume: volume unstaged")
@@ -170,4 +186,73 @@ func (n *UthoNodeServer) NodeGetCapabilities(context.Context, *csi.NodeGetCapabi
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: nodeCapabilities,
 	}, nil
+}
+
+type findmntResponse struct {
+	FileSystems []fileSystem `json:"filesystems"`
+}
+type fileSystem struct {
+	Target      string `json:"target"`
+	Propagation string `json:"propagation"`
+	FsType      string `json:"fstype"`
+	Options     string `json:"options"`
+}
+
+func (n *UthoNodeServer) isMounted(target string) (bool, error) {
+	if target == "" {
+		return false, errors.New("target is not specified for checking the mount")
+	}
+
+	findmntCmd := "findmnt"
+	_, err := exec.LookPath(findmntCmd)
+	if err != nil {
+		if err == exec.ErrNotFound {
+			return false, fmt.Errorf("%q executable not found in $PATH", findmntCmd)
+		}
+		return false, err
+	}
+
+	findmntArgs := []string{"-o", "TARGET,PROPAGATION,FSTYPE,OPTIONS", "-M", target, "-J"}
+
+	n.Driver.log.WithFields(logrus.Fields{
+		"cmd":  findmntCmd,
+		"args": findmntArgs,
+	}).Info("checking if target is mounted")
+
+	out, err := exec.Command(findmntCmd, findmntArgs...).CombinedOutput()
+	if err != nil {
+		// findmnt exits with non zero exit status if it couldn't find anything
+		if strings.TrimSpace(string(out)) == "" {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("checking mounted failed: %v cmd: %q output: %q",
+			err, findmntCmd, string(out))
+	}
+
+	// no response means there is no mount
+	if string(out) == "" {
+		return false, nil
+	}
+
+	var resp *findmntResponse
+	err = json.Unmarshal(out, &resp)
+	if err != nil {
+		return false, fmt.Errorf("couldn't unmarshal data: %q: %s", string(out), err)
+	}
+
+	targetFound := false
+	for _, fs := range resp.FileSystems {
+		// check if the mount is propagated correctly. It should be set to shared.
+		if fs.Propagation != "shared" {
+			return true, fmt.Errorf("mount propagation for target %q is not enabled", target)
+		}
+
+		// the mountpoint should match as well
+		if fs.Target == target {
+			targetFound = true
+		}
+	}
+
+	return targetFound, nil
 }

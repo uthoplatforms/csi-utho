@@ -5,6 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/uthoplatforms/utho-go/utho"
+	"k8s.io/mount-utils"
 )
 
 const (
@@ -22,6 +23,8 @@ type UthoDriver struct {
 
 	publishVolumeID string
 	mountID         string
+	mounter         *mount.SafeFormatAndMount
+	resizer         *mount.ResizeFs
 
 	isController bool
 	waitTimeout  time.Duration
