@@ -106,6 +106,13 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 
+			// return erro if volume exist and request with diffrent size
+			x := int64(byteSize) * giB
+			x1 := size
+			if x != x1 {
+				return nil, status.Error(codes.AlreadyExists, "Volume with the same name but different volume already exists")
+			}
+
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
 					VolumeId:      volume.ID,
@@ -160,7 +167,7 @@ func (c *UthoControllerServer) DeleteVolume(ctx context.Context, req *csi.Delete
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	
+
 	// chechk if exist
 	exists := false
 	for _, volume := range volumes {
@@ -349,6 +356,7 @@ func (c *UthoControllerServer) ValidateVolumeCapabilities(ctx context.Context, r
 
 	return res, nil
 }
+
 // ListVolumes performs the list volume function
 func (c *UthoControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	if req.StartingToken != "" {
@@ -371,7 +379,7 @@ func (c *UthoControllerServer) ListVolumes(ctx context.Context, req *csi.ListVol
 		}
 		entries = append(entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
-				VolumeId: volume.ID,
+				VolumeId:      volume.ID,
 				CapacityBytes: int64(byteSize),
 			},
 		})
