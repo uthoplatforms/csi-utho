@@ -159,6 +159,88 @@ func (n *UthoNodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
+// NodePublishVolume allows the volume publish
+func (n *UthoNodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) { //nolint:lll
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "VolumeID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "Staging Target Path must be provided")
+	}
+
+	if req.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "Target Path must be provided")
+	}
+
+	log := n.Driver.log.WithFields(logrus.Fields{
+		"volume_id":           req.VolumeId,
+		"staging_target_path": req.StagingTargetPath,
+		"target_path":         req.TargetPath,
+	})
+	log.Info("Node Publish Volume: called")
+
+	options := []string{"bind"}
+	if req.Readonly {
+		options = append(options, "ro")
+	}
+
+	mnt := req.VolumeCapability.GetMount()
+	options = append(options, mnt.MountFlags...)
+
+	fsType := "ext4"
+	if mnt.FsType != "" {
+		fsType = mnt.FsType
+	}
+
+	err := os.MkdirAll(req.TargetPath, mkDirMode)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	err = n.Driver.mounter.Mount(req.StagingTargetPath, req.TargetPath, fsType, options)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	n.Driver.log.Info("Node Publish Volume: published")
+	return &csi.NodePublishVolumeResponse{}, nil
+}
+
+// NodeUnpublishVolume allows the volume to be unpublished
+func (n *UthoNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) { //nolint:dupl,lll
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "VolumeID must be provided")
+	}
+
+	if req.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "Target Path must be provided")
+	}
+
+	n.Driver.log.WithFields(logrus.Fields{
+		"volume-id":   req.VolumeId,
+		"target-path": req.TargetPath,
+	}).Info("Node Unpublish Volume: called")
+
+	mounted, err := n.isMounted(req.TargetPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if mounted {
+		n.Driver.log.Info("unmounting the staging target path")
+
+		err := n.Driver.mounter.Unmount(req.TargetPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		n.Driver.log.Info("staging target path is already unmounted")
+	}
+
+	n.Driver.log.Info("Node Publish Volume: unpublished")
+	return &csi.NodeUnpublishVolumeResponse{}, nil
+}
 
 // NodeGetCapabilities provides the node capabilities
 func (n *UthoNodeServer) NodeGetCapabilities(context.Context, *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
