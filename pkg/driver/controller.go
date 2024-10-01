@@ -223,7 +223,7 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 	if volume.Cloudid == req.NodeId {
 		return &csi.ControllerPublishVolumeResponse{
 			PublishContext: map[string]string{
-				c.Driver.publishVolumeID: volume.Name,
+				c.Driver.publishInfoVolumeName: volume.Name,
 			},
 		}, nil
 	}
@@ -274,7 +274,7 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 
 	return &csi.ControllerPublishVolumeResponse{
 		PublishContext: map[string]string{
-			c.Driver.publishVolumeID: volume.Name,
+			c.Driver.publishInfoVolumeName: volume.Name,
 		},
 	}, nil
 }

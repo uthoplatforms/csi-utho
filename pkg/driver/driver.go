@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/uthoplatforms/utho-go/utho"
 	"k8s.io/mount-utils"
+	"k8s.io/utils/exec"
 )
 
 const (
@@ -21,10 +22,9 @@ type UthoDriver struct {
 	region   string
 	client   utho.Client
 
-	publishVolumeID string
-	mountID         string
-	mounter         *mount.SafeFormatAndMount
-	resizer         *mount.ResizeFs
+	publishInfoVolumeName string
+	mounter               *mount.SafeFormatAndMount
+	resizer               *mount.ResizeFs
 
 	isController bool
 	waitTimeout  time.Duration
@@ -34,7 +34,7 @@ type UthoDriver struct {
 	version string
 }
 
-func NewDriver(endpoint, token, driverName, version, region string) (*UthoDriver, error) {
+func NewDriver(endpoint, token, driverName, version, region string, isDebug bool) (*UthoDriver, error) {
 	if driverName == "" {
 		driverName = DefaultDriverName
 	}
@@ -48,13 +48,36 @@ func NewDriver(endpoint, token, driverName, version, region string) (*UthoDriver
 		"version": version,
 	})
 
+	var nodeId string
+
+	if isDebug {
+		nodeId = GenerateRandomString(10)
+	} else {
+		nodeId, err = GetNodeId()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &UthoDriver{
-		name:     driverName,
+		name:                  driverName,
+		publishInfoVolumeName: driverName + "/volume-name",
+
 		endpoint: endpoint,
+		nodeID:   nodeId,
 		region:   region,
 		client:   client,
 
 		log: log,
+		mounter: &mount.SafeFormatAndMount{
+			Interface: mount.New(""),
+			Exec:      exec.New(),
+		},
+
+		resizer: mount.NewResizeFs(mount.SafeFormatAndMount{
+			Interface: mount.New(""),
+			Exec:      exec.New(),
+		}.Exec),
 
 		version: version,
 	}, nil
