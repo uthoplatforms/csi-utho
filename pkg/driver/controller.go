@@ -380,7 +380,7 @@ func (c *UthoControllerServer) ListVolumes(ctx context.Context, req *csi.ListVol
 		entries = append(entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
 				VolumeId:      volume.ID,
-				CapacityBytes: int64(byteSize),
+				CapacityBytes: int64(byteSize) * giB,
 			},
 		})
 	}
@@ -411,6 +411,9 @@ func (c *UthoControllerServer) ControllerGetCapabilities(context.Context, *csi.C
 	var capabilities []*csi.ControllerServiceCapability
 	for _, caps := range []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
+		csi.ControllerServiceCapability_RPC_LIST_VOLUMES_PUBLISHED_NODES,
 	} {
 		capabilities = append(capabilities, capability(caps))
 	}
