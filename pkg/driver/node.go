@@ -2,13 +2,19 @@ package driver
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"golang.org/x/sys/unix"
+	"k8s.io/mount-utils"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -19,6 +25,9 @@ const (
 
 	mkDirMode = 0750
 
+	maxVolumesPerNode = 11
+
+	volumeModeBlock      = "block"
 	volumeModeFilesystem = "filesystem"
 )
 
@@ -35,7 +44,7 @@ func NewUthoNodeDriver(driver *UthoDriver) *UthoNodeServer {
 	return &UthoNodeServer{Driver: driver}
 }
 
-// NodeStageVolume mounts the volume to a staging path on the node.
+// NodeStageVolume provides stages the node volume
 func (n *UthoNodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume ID must be provided")
@@ -55,12 +64,14 @@ func (n *UthoNodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"capacity": req.VolumeCapability,
 	}).Info("Node Stage Volume: called")
 
-	volumeID, ok := req.GetPublishContext()[n.Driver.mountID]
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "Could not find the volume id")
+	volumeName := ""
+	if volName, ok := req.GetPublishContext()[n.Driver.publishInfoVolumeName]; !ok {
+		return nil, status.Error(codes.InvalidArgument, "Could not find the volume by name")
+	} else {
+		volumeName = volName
 	}
 
-	source := getDeviceByPath(volumeID)
+	source := getDeviceByPath(volumeName)
 	target := req.StagingTargetPath
 	mountBlk := req.VolumeCapability.GetMount()
 	options := mountBlk.MountFlags
@@ -242,6 +253,104 @@ func (n *UthoNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
+// NodeGetVolumeStats provides the volume stats
+func (n *UthoNodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) { //nolint:lll
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats Volume ID must be provided")
+	}
+
+	volumePath := req.VolumePath
+	if volumePath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats Volume Path must be provided")
+	}
+
+	log := n.Driver.log.WithFields(logrus.Fields{
+		"volume_id":   req.VolumeId,
+		"volume_path": req.VolumePath,
+		"method":      "node_get_volume_stats",
+	})
+	log.Info("node get volume stats called")
+
+	mounted, err := n.isMounted(volumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to check if volume path %q is mounted: %s", volumePath, err)
+	}
+
+	if !mounted {
+		return nil, status.Errorf(codes.NotFound, "volume path %q is not mounted", volumePath)
+	}
+
+	statfs := &unix.Statfs_t{}
+	err = unix.Statfs(volumePath, statfs)
+	if err != nil {
+		return nil, err
+	}
+
+	availableBytes := int64(statfs.Bavail) * int64(statfs.Bsize)                    //nolint:unconvert // 32bit builds fail otherwise
+	usedBytes := (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize) //nolint:unconvert // 32bit builds fail otherwise
+	totalBytes := int64(statfs.Blocks) * int64(statfs.Bsize)                        //nolint:unconvert // 32bit builds fail otherwise
+	totalInodes := int64(statfs.Files)
+	availableInodes := int64(statfs.Ffree)
+	usedInodes := totalInodes - availableInodes
+
+	log.WithFields(logrus.Fields{
+		"volume_mode":      volumeModeFilesystem,
+		"bytes_available":  availableBytes,
+		"bytes_total":      totalBytes,
+		"bytes_used":       usedBytes,
+		"inodes_available": availableInodes,
+		"inodes_total":     totalInodes,
+		"inodes_used":      usedInodes,
+	}).Info("node capacity statistics retrieved")
+
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Available: availableBytes,
+				Total:     totalBytes,
+				Used:      usedBytes,
+				Unit:      csi.VolumeUsage_BYTES,
+			},
+			{
+				Available: availableInodes,
+				Total:     totalInodes,
+				Used:      usedInodes,
+				Unit:      csi.VolumeUsage_INODES,
+			},
+		},
+	}, nil
+}
+
+// NodeExpandVolume provides the node volume expansion
+func (n *UthoNodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+	log := n.Driver.log.WithFields(logrus.Fields{
+		"volume_id":   req.VolumeId,
+		"volume_path": req.VolumePath,
+		"method":      "NodeExpandVolume",
+	})
+
+	n.Driver.log.WithFields(logrus.Fields{
+		"required_bytes": req.CapacityRange.RequiredBytes,
+	}).Info("Node Expand Volume: called")
+
+	devicePath, _, err := mount.GetDeviceNameFromMount(mount.New(""), req.VolumePath)
+	if err != nil {
+		log.Infof("failed to determine mount path for %s: %s", req.VolumePath, err)
+		return nil, fmt.Errorf("failed to determine mount path for %s: %s", req.VolumePath, err)
+	}
+
+	log.Infof("attempting to resize devicepath: %s", devicePath)
+
+	if _, err := n.Driver.resizer.Resize(devicePath, req.VolumePath); err != nil {
+		log.Infof("failed to resize volume: %s", err)
+		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to resize volume: %s", err))
+	}
+
+	return &csi.NodeExpandVolumeResponse{
+		CapacityBytes: req.CapacityRange.RequiredBytes,
+	}, nil
+}
+
 // NodeGetCapabilities provides the node capabilities
 func (n *UthoNodeServer) NodeGetCapabilities(context.Context, *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	nodeCapabilities := []*csi.NodeServiceCapability{
@@ -268,6 +377,26 @@ func (n *UthoNodeServer) NodeGetCapabilities(context.Context, *csi.NodeGetCapabi
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: nodeCapabilities,
 	}, nil
+}
+
+// NodeGetInfo provides the node info
+func (n *UthoNodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+	n.Driver.log.WithFields(logrus.Fields{}).Info("Node Get Info: called")
+
+	x := csi.NodeGetInfoResponse{
+		NodeId:            n.Driver.nodeID,
+		MaxVolumesPerNode: maxVolumesPerNode,
+		AccessibleTopology: &csi.Topology{
+			Segments: map[string]string{
+				"region": n.Driver.region,
+			},
+		},
+	}
+	return &x, nil
+}
+
+func getDeviceByPath(volumeID string) string {
+	return filepath.Join(diskPath, fmt.Sprintf("%s%s", diskPrefix, volumeID))
 }
 
 type findmntResponse struct {
