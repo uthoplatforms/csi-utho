@@ -215,9 +215,9 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 		return nil, status.Errorf(codes.NotFound, "cannot get volume: %v", err.Error())
 	}
 
-	if _, err = c.Driver.client.CloudInstances().Read(req.NodeId); err != nil {
-		return nil, status.Errorf(codes.NotFound, "cannot get node: %v", err.Error())
-	}
+	// if _, err = c.Driver.client.CloudInstances().Read(req.NodeId); err != nil {
+	// 	return nil, status.Errorf(codes.NotFound, "cannot get node: %v", err.Error())
+	// }
 
 	// node is already attached, do nothing
 	if volume.Cloudid == req.NodeId {
@@ -229,7 +229,7 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 	}
 
 	// assuming its attached & to the wrong node
-	if volume.Cloudid != "" {
+	if volume.Cloudid != "0" {
 		return nil, status.Errorf(codes.FailedPrecondition,
 			"cannot attach volume to node because it is already attached to a different node ID: %v node name: %v", volume.Cloudid, volume.Name)
 	}

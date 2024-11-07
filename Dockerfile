@@ -6,6 +6,6 @@ RUN apk add --no-cache ca-certificates e2fsprogs findmnt bind-tools e2fsprogs-ex
 
 COPY csi-utho-plugin /app/csi-utho-plugin
 
-RUN mkdir -p /var/lib/csi/sockets/pluginproxy/
+RUN mkdir -p /var/lib/csi/sockets/pluginproxy
 
-CMD ["/app/csi-utho-plugin"]
+ENTRYPOINT ["/app/csi-utho-plugin"]
