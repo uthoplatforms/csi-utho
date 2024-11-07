@@ -3,16 +3,12 @@ tidy:
 	go mod tidy
 	go fmt ./...
 
-.PHONY: test
-test:
-	go test -v ./...
-
 .PHONY: clean
 clean: 
 	rm -rf dist/ csi-utho-plugin
 
-.PHONY: deploy
-deploy: build docker-build docker-push
+.PHONY: push
+push: build docker-build docker-push
 
 .PHONY: build
 build:
@@ -21,11 +17,38 @@ build:
 
 .PHONY: docker-build
 docker-build:
-	@echo "building docker image to dockerhub $(REGISTRY) with version $(VERSION)"
-	docker build . -t hmada15/csi-utho:$(VERSION)
-	docker tag hmada15/csi-utho:$(VERSION) hmada15/csi-utho:latest
+	@echo "building docker image to dockerhub utho/csi-utho with version $(VERSION)"
+	docker build . -t utho/csi-utho:$(VERSION)
+	docker tag utho/csi-utho:$(VERSION) utho/csi-utho:latest
 
 .PHONY: docker-push
 docker-push:
-	docker push hmada15/csi-utho:$(VERSION)
-	docker push hmada15/csi-utho:latest
+	docker push utho/csi-utho:$(VERSION)
+	docker push utho/csi-utho:latest
+
+.PHONY: deploy
+deploy:
+	@kubectl apply -f deploy/utho.yml
+
+.PHONY: new-deploy
+new-deploy: push
+	@sed -i 's|\(utho/csi-utho:\)[0-9]*\.[0-9]*\.[0-9]*|\1$(VERSION)|g' deploy/utho.yml
+	@kubectl apply -f deploy/secret.yaml
+	@kubectl apply -f deploy/utho.yml
+
+.PHONY: undeploy
+undeploy:
+	kubectl delete -f deploy/utho.yml
+
+.PHONY: test
+test:
+	csi-sanity --ginkgo.focus="$(FILTER)" --csi.endpoint=unix:///var/lib/csi/sockets/pluginproxy/csi.sock -csi.testvolumeparameters=create.yaml  --ginkgo.junit-report=test.xml --ginkgo.v
+
+.PHONY: test-all
+test-all:
+	csi-sanity --csi.endpoint=unix:///var/lib/csi/sockets/pluginproxy/csi.sock -csi.testvolumeparameters=create.yaml  --ginkgo.junit-report=test.xml --ginkgo.v
+
+.PHONY: html
+html:
+	junit2html test.xml
+	firefox test.xml.html
