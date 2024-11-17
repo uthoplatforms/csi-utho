@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -53,11 +54,12 @@ func NewDriver(endpoint, token, driverName, version, region string, isDebug bool
 	if isDebug {
 		nodeId = GenerateRandomString(10)
 	} else {
-		nodeId, err = GetNodeId()
+		nodeId, err = GetNodeId(client)
 		if err != nil {
 			return nil, err
 		}
 	}
+	fmt.Printf("node id %s:\n", nodeId)
 
 	return &UthoDriver{
 		name:                  driverName,

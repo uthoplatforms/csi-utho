@@ -21,7 +21,7 @@ func GetNodeId(client utho.Client) (string, error) {
 	if nodeName == "" {
 		return "", fmt.Errorf("NODE_NAME environment variable not set")
 	}
-	fmt.Printf("nodeName: %s:\n", nodeName)
+	fmt.Printf("env nodeName: '%s'\n", nodeName)
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -41,19 +41,21 @@ func GetNodeId(client utho.Client) (string, error) {
 
 	// Retrieve the nodepool_id label
 	cluster_id, found := node.Labels["cluster_id"]
-	fmt.Printf("cluster id %s:\n", cluster_id)
+	fmt.Printf("cluster id '%s'\n", cluster_id)
 	if !found {
-		return "", fmt.Errorf("cluster_id label not found on node %s", nodeName)
+		return "", fmt.Errorf("cluster_id label not found on node '%s'", nodeName)
 	}
+	fmt.Printf("cluster_id: '%s'\n", cluster_id)
 	nodepool_id, found := node.Labels["nodepool_id"]
-	fmt.Printf("nodepool id %s:\n", nodepool_id)
+	fmt.Printf("nodepool id '%s'\n", nodepool_id)
 	if !found {
-		return "", fmt.Errorf("nodepool_id label not found on node %s", nodeName)
+		return "", fmt.Errorf("nodepool_id label not found on node '%s'", nodeName)
 	}
+	fmt.Printf("nodepool_id: '%s'\n", nodepool_id)
 
 	k8s, err := client.Kubernetes().Read(cluster_id)
 	if err != nil {
-		return "", fmt.Errorf("error retrieving Kubernetes with id %s: %w", cluster_id, err)
+		return "", fmt.Errorf("error retrieving Kubernetes with id '%s' %w", cluster_id, err)
 	}
 
 	var node_id string
@@ -61,22 +63,22 @@ func GetNodeId(client utho.Client) (string, error) {
 	if nodepool, exists := k8s.Nodepools[nodepool_id]; exists {
 		for _, node := range nodepool.Workers {
 			hostName := node.Hostname
-			fmt.Printf("Node hostName: %s\n", hostName)
-			fmt.Printf("nodeName: %s\n", nodeName)
+			fmt.Printf("Node hostName: '%s'\n", hostName)
+			fmt.Printf("nodeName: '%s'\n", nodeName)
 
 			if strings.EqualFold(hostName, nodeName) {
 				node_id = node.Cloudid
-				fmt.Printf("node_id inside if: %s\n", node_id)
+				fmt.Printf("node_id inside if: '%s'\n", node_id)
 				fmt.Printf("node name if: '%s'=>'%s'\n", hostName, nodeName)
 				break
 			}
-			fmt.Printf("node_id outside if: %s\n", node_id)
+			fmt.Printf("node_id outside if: '%s'\n", node_id)
 		}
 	} else {
-		fmt.Printf("node with name %s does not exist in the NodePool %s.\n", nodeName, nodepool_id)
+		fmt.Printf("node with name '%s' does not exist in the NodePool '%s'.\n", nodeName, nodepool_id)
 	}
 
-	fmt.Printf("node id %s:\n", node_id)
+	fmt.Printf("node id '%s'\n", node_id)
 
 	return node_id, nil
 }
