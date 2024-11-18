@@ -5,7 +5,7 @@ go 1.22.4
 require (
 	github.com/container-storage-interface/spec v1.10.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/uthoplatforms/utho-go v0.1.26
+	github.com/uthoplatforms/utho-go v0.1.28
 	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc
 	golang.org/x/sys v0.21.0
 	google.golang.org/grpc v1.65.0
