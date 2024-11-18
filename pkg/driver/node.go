@@ -21,7 +21,7 @@ import (
 
 const (
 	diskPath   = "/dev/disk/by-id"
-	diskPrefix = "virtio-"
+	diskPrefix = "virtio-uthostorage-"
 
 	mkDirMode = 0750
 
@@ -64,14 +64,12 @@ func (n *UthoNodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 		"capacity": req.VolumeCapability,
 	}).Info("Node Stage Volume: called")
 
-	volumeName := ""
-	if volName, ok := req.GetPublishContext()[n.Driver.publishInfoVolumeName]; !ok {
-		return nil, status.Error(codes.InvalidArgument, "Could not find the volume by name")
-	} else {
-		volumeName = volName
+	volumeID, ok := req.GetPublishContext()[n.Driver.publishVolumeID]
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "Could not find the volume id")
 	}
 
-	source := getDeviceByPath(volumeName)
+	source := getDeviceByPath(volumeID)
 	target := req.StagingTargetPath
 	mountBlk := req.VolumeCapability.GetMount()
 	options := mountBlk.MountFlags

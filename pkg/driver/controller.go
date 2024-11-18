@@ -223,7 +223,7 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 	if volume.Cloudid == req.NodeId {
 		return &csi.ControllerPublishVolumeResponse{
 			PublishContext: map[string]string{
-				c.Driver.publishInfoVolumeName: volume.Name,
+				c.Driver.publishVolumeID: volume.ID,
 			},
 		}, nil
 	}
@@ -274,7 +274,7 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 
 	return &csi.ControllerPublishVolumeResponse{
 		PublishContext: map[string]string{
-			c.Driver.publishInfoVolumeName: volume.Name,
+			c.Driver.publishVolumeID: volume.ID,
 		},
 	}, nil
 }
@@ -304,9 +304,9 @@ func (c *UthoControllerServer) ControllerUnpublishVolume(ctx context.Context, re
 		return &csi.ControllerUnpublishVolumeResponse{}, nil
 	}
 
-	if _, err = c.Driver.client.CloudInstances().Read(req.NodeId); err != nil {
-		return nil, status.Errorf(codes.NotFound, "cannot get node: %v", err.Error())
-	}
+	// if _, err = c.Driver.client.CloudInstances().Read(req.NodeId); err != nil {
+	// 	return nil, status.Errorf(codes.NotFound, "cannot get node: %v", err.Error())
+	// }
 
 	params := utho.AttachEBSParams{
 		EBSId:      req.VolumeId,

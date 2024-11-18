@@ -17,11 +17,12 @@ const (
 
 // UthoDriver struct
 type UthoDriver struct {
-	name     string
-	endpoint string
-	nodeID   string
-	region   string
-	client   utho.Client
+	name            string
+	publishVolumeID string
+	endpoint        string
+	nodeID          string
+	region          string
+	client          utho.Client
 
 	publishInfoVolumeName string
 	mounter               *mount.SafeFormatAndMount
