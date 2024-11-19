@@ -93,7 +93,7 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 		"capabilities": req.VolumeCapabilities,
 	}).Info("Create Volume: called")
 
-	// check that the volume doesnt already exist
+	// check that the volume doesn't already exist
 	volumes, err := c.Driver.client.Ebs().List()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -177,6 +177,9 @@ func (c *UthoControllerServer) DeleteVolume(ctx context.Context, req *csi.Delete
 		}
 	}
 	if !exists {
+		c.Driver.log.WithFields(logrus.Fields{
+			"volume-id": req.VolumeId,
+		}).Info("Delete Volume: volume doesn't exist")
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
@@ -221,6 +224,11 @@ func (c *UthoControllerServer) ControllerPublishVolume(ctx context.Context, req 
 
 	// node is already attached, do nothing
 	if volume.Cloudid == req.NodeId {
+		c.Driver.log.WithFields(logrus.Fields{
+			"volume-id": req.VolumeId,
+			"node-id":   req.NodeId,
+		}).Info("Controller Publish Volume: node is already attached, do nothing")
+
 		return &csi.ControllerPublishVolumeResponse{
 			PublishContext: map[string]string{
 				c.Driver.publishVolumeID: volume.ID,
@@ -301,6 +309,11 @@ func (c *UthoControllerServer) ControllerUnpublishVolume(ctx context.Context, re
 
 	// node is already unattached, do nothing
 	if volume.Cloudid == "" {
+		c.Driver.log.WithFields(logrus.Fields{
+			"volume-id": req.VolumeId,
+			"node-id":   req.NodeId,
+		}).Info("Controller Publish Unpublish: node is already unattached, do nothing")
+
 		return &csi.ControllerUnpublishVolumeResponse{}, nil
 	}
 
@@ -314,6 +327,10 @@ func (c *UthoControllerServer) ControllerUnpublishVolume(ctx context.Context, re
 		Type:       "cloud",
 	}
 
+	c.Driver.log.WithFields(logrus.Fields{
+		"volume-id": req.VolumeId,
+		"node-id":   req.NodeId,
+	}).Info("Controller Publish Unpublish: dettach volume")
 	_, err = c.Driver.client.Ebs().Dettach(params)
 	if err != nil {
 		if strings.Contains(err.Error(), "Block storage volume is not currently attached to a server") {
@@ -354,6 +371,11 @@ func (c *UthoControllerServer) ValidateVolumeCapabilities(ctx context.Context, r
 		},
 	}
 
+	c.Driver.log.WithFields(logrus.Fields{
+		"response": res,
+		"method":   "validate-volume-capabilities",
+	})
+
 	return res, nil
 }
 
@@ -367,6 +389,7 @@ func (c *UthoControllerServer) ListVolumes(ctx context.Context, req *csi.ListVol
 	}
 
 	var entries []*csi.ListVolumesResponse_Entry
+	c.Driver.log.WithFields(logrus.Fields{}).Info("List Volumes: calling list volume")
 	volumes, err := c.Driver.client.Ebs().List()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

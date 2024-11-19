@@ -45,6 +45,7 @@ func NewUthoNodeDriver(driver *UthoDriver) *UthoNodeServer {
 }
 
 // NodeStageVolume provides stages the node volume
+// This method is called by the CO to temporarily mount the volume to a staging path
 func (n *UthoNodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume ID must be provided")
@@ -129,6 +130,7 @@ func (n *UthoNodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStage
 }
 
 // NodeUnstageVolume provides the node volume unstage functionality
+// This method is called by the CO to unmount the volume from the staging path. It's the reverse of NodeStageVolume
 func (n *UthoNodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) { //nolint:dupl,lll
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeID must be provided")
@@ -169,6 +171,7 @@ func (n *UthoNodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUns
 }
 
 // NodePublishVolume allows the volume publish
+// This method is called to mount the volume from staging to target path
 func (n *UthoNodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) { //nolint:lll
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeID must be provided")
@@ -217,6 +220,7 @@ func (n *UthoNodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePub
 }
 
 // NodeUnpublishVolume allows the volume to be unpublished
+// This is the reverse of NodePublishVolume. It unmounts the volume from the target path
 func (n *UthoNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) { //nolint:dupl,lll
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "VolumeID must be provided")
@@ -252,6 +256,7 @@ func (n *UthoNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeU
 }
 
 // NodeGetVolumeStats provides the volume stats
+// This method is called to get the volume stats
 func (n *UthoNodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) { //nolint:lll
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats Volume ID must be provided")
@@ -381,7 +386,7 @@ func (n *UthoNodeServer) NodeGetCapabilities(context.Context, *csi.NodeGetCapabi
 func (n *UthoNodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	n.Driver.log.WithFields(logrus.Fields{}).Info("Node Get Info: called")
 
-	x := csi.NodeGetInfoResponse{
+	res := csi.NodeGetInfoResponse{
 		NodeId:            n.Driver.nodeID,
 		MaxVolumesPerNode: maxVolumesPerNode,
 		AccessibleTopology: &csi.Topology{
@@ -390,7 +395,12 @@ func (n *UthoNodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 			},
 		},
 	}
-	return &x, nil
+	n.Driver.log.WithFields(logrus.Fields{
+		"response": res,
+		"method":   "node-get-info",
+	})
+
+	return &res, nil
 }
 
 func getDeviceByPath(volumeID string) string {
