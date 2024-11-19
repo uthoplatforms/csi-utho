@@ -396,8 +396,10 @@ func (n *UthoNodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 		},
 	}
 	n.Driver.log.WithFields(logrus.Fields{
-		"response": res,
-		"method":   "node-get-info",
+		"node_id":              res.NodeId,
+		"max_volumes_per_node": res.MaxVolumesPerNode,
+		"accessible_topology":  res.AccessibleTopology,
+		"method":               "node-get-info",
 	})
 
 	return &res, nil

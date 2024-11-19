@@ -28,8 +28,8 @@ type UthoDriver struct {
 	mounter               *mount.SafeFormatAndMount
 	resizer               *mount.ResizeFs
 
-	isController bool
-	waitTimeout  time.Duration
+	// isController bool
+	// waitTimeout  time.Duration
 
 	log *logrus.Entry
 
