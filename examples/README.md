@@ -37,12 +37,7 @@ secret/utho-csi created
 To deploy the latest release of the CSI to your Kubernetes cluster, run the
 following:
 
-`kubectl apply -f https://raw.githubusercontent.com/utho/utho-csi/master/docs/releases/latest.yml`
-
-If you wish to deploy a specific version, you must replace `latest` with a
-proper release where `X.Y.Z` is the desired version:
-
-`https://raw.githubusercontent.com/utho/utho-csi/master/docs/releases/vX.Y.Z.yml`
+`kubectl apply -f deploy/latest.yml`
 
 ### Validating
 

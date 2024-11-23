@@ -16,11 +16,7 @@ The version will be bumped following the rules below:
 
 Below is a list of functionality implemented by the plugin. In general, [CSI features](https://kubernetes-csi.github.io/docs/features.html) implementing an aspect of the [specification](https://github.com/container-storage-interface/spec/blob/master/spec.md) are available on any Utho Kubernetes version for which beta support for the feature is provided.
 
-See also the [project examples](/examples/kubernetes) for use cases.
-
-<!-- ### Volume Transfer
-
-Volumes can be transferred across clusters. The exact steps are outlined in [our example](/examples/kubernetes/pod-single-existing-volume). -->
+See also the [project examples](/examples) for use cases.
 
 ## Installing to Kubernetes
 
@@ -73,7 +69,7 @@ The [releases directory](deploy/kubernetes/releases) holds manifests for all plu
 
 ```shell
 # Do *not* add a blank space after -f
-kubectl apply -fhttps://raw.githubusercontent.com/utho/csi-utho/master/deploy/kubernetes/releases/csi-utho-vX.Y.Z/{crds.yaml,driver.yaml,snapshot-controller.yaml}
+kubectl apply -f deploy/latest.yml
 ```
 
 #### 4. Test and verify
