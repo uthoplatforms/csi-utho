@@ -47,8 +47,8 @@ which will be used to create your volumes
 
 ```sh
 kubectl get storageclass
-NAME                            PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
-utho-block-storage-retain      csi.utho.com   Delete          Immediate           false                  131m
+NAME                        PROVISIONER    RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+utho-block-storage-retain   csi.utho.com   Delete          Immediate           false                  131m
 ```
 
 To further validate the CSI, create a
@@ -77,8 +77,8 @@ addition, you can see that you have a `PersistentVolume` created by your Claim
 
 ```sh
 kubectl get pv
-NAME                   CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM             STORAGECLASS          REASON   AGE
-pvc-2579a832202d4d07   10Gi       RWO            Delete           Bound    csi-utho-pvc   utho-block-storage            2s
+NAME                   CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM          STORAGECLASS          AGE
+pvc-2579a832202d4d07   10Gi       RWO            Delete           Bound    csi-utho-pvc   utho-block-storage    2s
 ```
 
 Again, this volume is not attached to any node/pod yet. The volume will be
