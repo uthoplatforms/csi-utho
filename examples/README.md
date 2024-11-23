@@ -129,4 +129,3 @@ kubectl create -f examples/pod-volume.yml
 # See that data on our volume still exists
 kubectl exec -it csi-app -- /bin/sh -c "ls /data"
 ```
-
