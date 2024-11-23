@@ -29,6 +29,7 @@ csi-utho-plugin
 
 *.html
 *.xml
+*.log
 /*.yaml
 !*/ 
 /*.yml
