@@ -391,7 +391,7 @@ func (n *UthoNodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRe
 		MaxVolumesPerNode: maxVolumesPerNode,
 		AccessibleTopology: &csi.Topology{
 			Segments: map[string]string{
-				"region": n.Driver.region,
+				"region": n.Driver.dcslug,
 			},
 		},
 	}

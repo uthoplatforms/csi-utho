@@ -21,7 +21,7 @@ type UthoDriver struct {
 	publishVolumeID string
 	endpoint        string
 	nodeID          string
-	region          string
+	dcslug          string
 	client          utho.Client
 
 	publishInfoVolumeName string
@@ -36,7 +36,7 @@ type UthoDriver struct {
 	version string
 }
 
-func NewDriver(endpoint, token, driverName, version, region string, isDebug bool) (*UthoDriver, error) {
+func NewDriver(endpoint, token, driverName, version, dcslug string, isDebug bool) (*UthoDriver, error) {
 	if driverName == "" {
 		driverName = DefaultDriverName
 	}
@@ -59,6 +59,16 @@ func NewDriver(endpoint, token, driverName, version, region string, isDebug bool
 		if err != nil {
 			return nil, err
 		}
+
+		clusterId, err := GetClusterID()
+		if err != nil {
+			return nil, err
+		}
+
+		dcslug, err = GetDcslug(client, clusterId)
+		if err != nil {
+			return nil, err
+		}
 	}
 	fmt.Printf("node id %s:\n", nodeId)
 
@@ -68,7 +78,7 @@ func NewDriver(endpoint, token, driverName, version, region string, isDebug bool
 
 		endpoint: endpoint,
 		nodeID:   nodeId,
-		region:   region,
+		dcslug:   dcslug,
 		client:   client,
 
 		log: log,

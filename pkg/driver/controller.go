@@ -67,9 +67,6 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 	if len(req.VolumeCapabilities) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "CreateVolume Volume Capabilities is missing")
 	}
-	if req.Parameters["dcslug"] == "" {
-		return nil, status.Error(codes.InvalidArgument, "CreateVolume Volume parameter `dcslug` is missing")
-	}
 	if req.Parameters["iops"] == "" {
 		return nil, status.Error(codes.InvalidArgument, "CreateVolume Volume parameter `iops` is missing")
 	}
@@ -125,7 +122,7 @@ func (c *UthoControllerServer) CreateVolume(ctx context.Context, req *csi.Create
 	// if applicable, create volume
 	params := utho.CreateEBSParams{
 		Name:       volName,
-		Dcslug:     req.Parameters["dcslug"],
+		Dcslug:     c.Driver.dcslug,
 		Disk:       strconv.Itoa(bytesToGB(size)),
 		Iops:       req.Parameters["iops"],
 		Throughput: req.Parameters["throughput"],

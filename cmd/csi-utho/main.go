@@ -13,7 +13,7 @@ func main() {
 	var (
 		endpoint   = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/"+driver.DefaultDriverName+"/csi.sock", "CSI endpoint")
 		token      = flag.String("token", "", "Utho API Token")
-		region     = flag.String("region", "inmumbaizone2", "Utho region slug.")
+		dcslug     = flag.String("dcslug", "inmumbaizone2", "Utho dcslug.")
 		driverName = flag.String("driver-name", driver.DefaultDriverName, "Name of driver")
 		debug      = flag.Bool("debug", false, "Is debug")
 	)
@@ -26,7 +26,7 @@ func main() {
 		log.Fatal("version must be defined at compilation")
 	}
 
-	d, err := driver.NewDriver(*endpoint, *token, *driverName, version, *region, *debug)
+	d, err := driver.NewDriver(*endpoint, *token, *driverName, version, *dcslug, *debug)
 	if err != nil {
 		log.Fatalln(err)
 	}
