@@ -10,9 +10,9 @@ clean:
 # make new-deploy VERSION=0.1.16
 .PHONY: new-deploy
 new-deploy: push
-	@sed -i 's|\(utho/csi-utho:\)[0-9]*\.[0-9]*\.[0-9]*|\1$(VERSION)|g' deploy/utho.yml
+	@sed -i 's|\(utho/csi-utho:\)[0-9]*\.[0-9]*\.[0-9]*|\1$(VERSION)|g' deploy/latest.yml
 	@kubectl apply -f deploy/secret.yaml
-	@kubectl apply -f deploy/utho.yml
+	@kubectl apply -f deploy/latest.yml
 
 .PHONY: push
 push: build docker-build docker-push
@@ -35,11 +35,11 @@ docker-push:
 
 .PHONY: deploy
 deploy:
-	@kubectl apply -f deploy/utho.yml
+	@kubectl apply -f deploy/latest.yml
 
 .PHONY: undeploy
 undeploy:
-	kubectl delete -f deploy/utho.yml
+	kubectl delete -f deploy/latest.yml
 
 .PHONY: test
 test:

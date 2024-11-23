@@ -72,7 +72,7 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-utho-plugin
-          image: utho/csi-utho:0.1.16
+          image: utho/csi-utho:1.0.0
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--token=$(UTHO_API_KEY)"
@@ -237,7 +237,7 @@ spec:
 
         # CSI Plugin Container
         - name: csi-utho-plugin
-          image: utho/csi-utho:0.1.16
+          image: utho/csi-utho:1.0.0
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--token=$(UTHO_API_KEY)"
