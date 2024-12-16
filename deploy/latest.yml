@@ -86,7 +86,7 @@ spec:
             - name: UTHO_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: csi-utho
+                  name: utho-api-key
                   key: api-key
           imagePullPolicy: "Always"
           volumeMounts:
@@ -251,7 +251,7 @@ spec:
             - name: UTHO_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: csi-utho
+                  name: utho-api-key
                   key: api-key
           imagePullPolicy: "Always"
           securityContext:
